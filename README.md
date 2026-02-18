@@ -1,293 +1,307 @@
-# 🚗 Sistema de Web Scraping de Veículos - Desafio C2S
+# 🚗 Desafio C2S - Sistema de Web Scraping de Veículos
 
-Sistema de web scraping para coleta de dados de anúncios de veículos da Webmotors, desenvolvido com arquitetura de microsserviços em Ruby on Rails.
+Sistema de web scraping de anúncios de veículos da Webmotors, construído com arquitetura de microsserviços em Ruby on Rails.
 
----
+## 📊 Arquitetura do Sistema
 
-## 📐 Diagrama de Arquitetura
+![Arquitetura dos Microsserviços](docs/architecture.png)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    FRONTEND (Browser)                                    │
-│                              Vue.js + Vuetify + Inertia.js                              │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-                                            │
-                                            │ HTTP/HTTPS
-                                            ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                             WEBSCRAPING-MANAGER (:3000)                                  │
-│                                   (Sistema Principal)                                    │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────────┐ │
-│  │ Controllers │  │   Models    │  │   Clients   │  │         Inertia SSR            │ │
-│  │ - Tasks     │  │ - Task      │  │ - Auth      │  │   (Server Side Rendering)      │ │
-│  │ - Sessions  │  │ - User      │  │ - Scraping  │  └─────────────────────────────────┘ │
-│  │ - Home      │  │   (virtual) │  │ - Notif.    │                                      │
-│  └─────────────┘  └─────────────┘  └─────────────┘                                      │
-│                                                                                          │
-│  Responsabilidades:                                                                      │
-│  • Interface do usuário (CRUD de tarefas)                                               │
-│  • Orquestração dos microsserviços                                                       │
-│  • Armazenamento das tarefas de scraping                                                │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-           │                              │                              │
-           │ HTTP                         │ HTTP                         │ HTTP
-           │ (JWT Auth)                   │ (Async Job)                  │ (Notify)
-           ▼                              ▼                              ▼
-┌──────────────────────┐    ┌──────────────────────────┐    ┌──────────────────────────┐
-│  AUTH-SERVICE (:3001)│    │ SCRAPING-PROCESSOR(:3003)│    │NOTIFICATION-SERVICE(:3002│
-│                      │    │                          │    │                          │
-│  ┌────────────────┐  │    │  ┌──────────────────┐   │    │  ┌──────────────────┐   │
-│  │   JWT Service  │  │    │  │   Sidekiq Jobs   │   │    │  │  Action Cable    │   │
-│  │   - encode()   │  │    │  │   - ScrapingJob  │   │    │  │  (WebSockets)    │   │
-│  │   - decode()   │  │    │  └──────────────────┘   │    │  └──────────────────┘   │
-│  └────────────────┘  │    │            │            │    │            │            │
-│  ┌────────────────┐  │    │            ▼            │    │            ▼            │
-│  │   User Model   │  │    │  ┌──────────────────┐   │    │  ┌──────────────────┐   │
-│  │   - email      │  │    │  │ ScrapingService  │   │    │  │  Notifications   │   │
-│  │   - password   │  │    │  │ (Ferrum+Nokogiri)│   │    │  │     Channel      │   │
-│  │   - name       │  │    │  └──────────────────┘   │    │  └──────────────────┘   │
-│  └────────────────┘  │    │                          │    │                          │
-│                      │    │  Responsabilidades:      │    │  Responsabilidades:      │
-│  Responsabilidades:  │    │  • Web scraping real     │    │  • Notificações em       │
-│  • Registro/Login    │    │  • Processamento async   │    │    tempo real            │
-│  • Validação JWT     │    │  • Coleta marca/modelo/  │    │  • WebSocket broadcast   │
-│  • Gestão de users   │    │    preço                 │    │  • Eventos da aplicação  │
-└──────────────────────┘    └──────────────────────────┘    └──────────────────────────┘
-           │                              │                              │
-           │                              │                              │
-           ▼                              ▼                              ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    INFRAESTRUTURA                                        │
-│                                                                                          │
-│  ┌─────────────────────────────┐              ┌─────────────────────────────┐           │
-│  │      PostgreSQL (:5432)     │              │        Redis (:6379)        │           │
-│  │                             │              │                             │           │
-│  │  ┌─────────┐ ┌───────────┐  │              │  • Sidekiq Queue            │           │
-│  │  │ auth_db │ │webscraping│  │              │  • Pub/Sub (task updates)   │           │
-│  │  │         │ │   _db     │  │              │  • Action Cable adapter     │           │
-│  │  └─────────┘ └───────────┘  │              │                             │           │
-│  │  ┌───────────┐ ┌─────────┐  │              └─────────────────────────────┘           │
-│  │  │notificati-│ │scraping │  │                                                        │
-│  │  │  on_db    │ │   _db   │  │                                                        │
-│  │  └───────────┘ └─────────┘  │                                                        │
-│  └─────────────────────────────┘                                                        │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
+### Fluxo de Dados
+
+![Fluxo de Sequência](docs/flow-sequence.png)
+
+### Infraestrutura Docker
+
+![Infraestrutura](docs/infrastructure.png)
 
 ---
 
-## 🔄 Fluxo de Dados
+## 🏗️ Visão Geral dos Serviços
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FLUXO: CRIAR TAREFA DE SCRAPING                            │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-
- ┌──────┐         ┌───────────────┐       ┌──────────────┐       ┌──────────────────┐
- │ User │         │  Webscraping  │       │   Scraping   │       │   Notification   │
- │      │         │    Manager    │       │   Processor  │       │     Service      │
- └──┬───┘         └───────┬───────┘       └──────┬───────┘       └────────┬─────────┘
-    │                     │                      │                        │
-    │  1. Criar Task      │                      │                        │
-    │  (título + URL)     │                      │                        │
-    │────────────────────>│                      │                        │
-    │                     │                      │                        │
-    │                     │  2. Salva Task       │                        │
-    │                     │  (status: pending)   │                        │
-    │                     │──────────┐           │                        │
-    │                     │          │           │                        │
-    │                     │<─────────┘           │                        │
-    │                     │                      │                        │
-    │                     │  3. POST /scrap_task │                        │
-    │                     │─────────────────────>│                        │
-    │                     │                      │                        │
-    │                     │                      │  4. Enfileira Job      │
-    │                     │                      │  (Sidekiq)             │
-    │                     │                      │──────────┐             │
-    │                     │                      │          │             │
-    │                     │                      │<─────────┘             │
-    │                     │                      │                        │
-    │                     │  5. Notifica         │                        │
-    │                     │  (task_created)      │                        │
-    │                     │───────────────────────────────────────────────>
-    │                     │                      │                        │
-    │  6. Redirect        │                      │                        │
-    │  (lista de tasks)   │                      │                        │
-    │<────────────────────│                      │                        │
-    │                     │                      │                        │
-    │                     │                      │  7. Sidekiq processa   │
-    │                     │                      │  ScrapingJob           │
-    │                     │                      │──────────┐             │
-    │                     │                      │  Ferrum  │             │
-    │                     │                      │  Chrome  │             │
-    │                     │                      │<─────────┘             │
-    │                     │                      │                        │
-    │                     │  8. Redis Pub/Sub    │                        │
-    │                     │  (task_update_status)│                        │
-    │                     │<─────────────────────│                        │
-    │                     │                      │                        │
-    │                     │                      │  9. Notifica           │
-    │                     │                      │  (task_completed)      │
-    │                     │                      │───────────────────────>│
-    │                     │                      │                        │
-    │                     │                      │                        │  10. WebSocket
-    │  11. Real-time      │                      │                        │  Broadcast
-    │  Update             │                      │                        │<─────────┐
-    │<────────────────────────────────────────────────────────────────────│          │
-    │                     │                      │                        │<─────────┘
-```
+| Serviço | Porta | Responsabilidade |
+|---------|-------|------------------|
+| **webscraping-manager** | 3000 | Frontend (Vue.js) + Orquestração de tarefas |
+| **auth-service** | 3001 | Autenticação JWT + Gestão de usuários |
+| **notification-service** | 3002 | WebSockets (Action Cable) + Notificações |
+| **scraping-processor** | 3003 | Processamento de scraping com Sidekiq |
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
-| Camada | Tecnologia |
-|--------|------------|
-| **Backend** | Ruby 3.3+ / Rails 8.1.2 |
-| **Frontend** | Vue.js 3 + Vuetify 3 + Inertia.js |
-| **Bundler** | Vite |
-| **Banco de Dados** | PostgreSQL 15+ |
-| **Cache/Queue** | Redis 7+ |
-| **Jobs** | Sidekiq |
-| **Web Scraping** | Ferrum (Headless Chrome) + Nokogiri |
-| **Autenticação** | JWT (JSON Web Tokens) |
-| **WebSockets** | Action Cable |
-| **Containers** | Docker + Docker Compose |
+### Backend
+- **Ruby** 3.4.1
+- **Rails** 8.0.2
+- **PostgreSQL** 15
+- **Redis** 7
+- **Sidekiq** (jobs assíncronos)
 
----
+### Frontend
+- **Vue.js 3** + Vuetify 3
+- **Inertia.js** (SPA sem API)
+- **Vite** (build tool)
 
-## 📁 Estrutura dos Serviços
+### Web Scraping
+- **Ferrum** (Chrome headless)
+- **Nokogiri** (parsing HTML)
 
-```
-desafio-c2s/
-├── docker-compose.yml          # Orquestração de todos os serviços
-│
-├── webscraping-manager/        # Sistema Principal (Frontend + API)
-│   ├── app/
-│   │   ├── clients/            # Clientes HTTP para outros serviços
-│   │   ├── controllers/        # Controllers Rails + Inertia
-│   │   ├── javascript/         # Vue.js components
-│   │   │   └── pages/          # Páginas Inertia
-│   │   ├── models/             # Task model
-│   │   └── repository/         # Repository pattern
-│   └── config/
-│
-├── auth-service/               # Microsserviço de Autenticação
-│   ├── app/
-│   │   ├── controllers/api/v1/ # Endpoints JWT
-│   │   ├── models/             # User model
-│   │   └── services/           # JWT Service
-│   └── config/
-│
-├── scraping-processor/         # Microsserviço de Processamento
-│   ├── app/
-│   │   ├── controllers/api/v1/ # Endpoints de scraping
-│   │   ├── jobs/               # Sidekiq Jobs
-│   │   ├── models/             # ScrapeTask model
-│   │   └── services/           # ScrapingService
-│   └── config/
-│
-└── notification-service/       # Microsserviço de Notificações
-    ├── app/
-    │   ├── channels/           # Action Cable channels
-    │   └── controllers/api/v1/ # Endpoints de notificação
-    └── config/
-```
+### Infraestrutura
+- **Docker** + Docker Compose
+- **Action Cable** (WebSockets)
 
 ---
 
 ## 🚀 Como Executar
 
 ### Pré-requisitos
-- Docker 24+
-- Docker Compose 2.20+
+- Docker 20+
+- Docker Compose 2+
 
-### Subir todos os serviços
+### Subir o ambiente
 
 ```bash
-# Clone o repositório
-git clone <repo-url>
+# Clonar o repositório
+git clone https://github.com/seu-usuario/desafio-c2s.git
 cd desafio-c2s
 
 # Subir todos os serviços
 docker-compose up --build
-
-# Criar os bancos de dados (primeiro uso)
-docker-compose exec webscraping-manager rails db:create db:migrate
-docker-compose exec auth-service rails db:create db:migrate
-docker-compose exec scraping-processor rails db:create db:migrate
-docker-compose exec notification-service rails db:create db:migrate
 ```
 
-### Acessar a aplicação
+### Acessar os serviços
 
 | Serviço | URL |
 |---------|-----|
-| **Frontend (Manager)** | http://localhost:3000 |
-| **Auth Service** | http://localhost:3001 |
-| **Notification Service** | http://localhost:3002 |
-| **Scraping Processor** | http://localhost:3003 |
-| **Sidekiq Dashboard** | http://localhost:3003/sidekiq |
+| Aplicação Principal | http://localhost:3000 |
+| Auth Service | http://localhost:3001 |
+| Notification Service | http://localhost:3002 |
+| Scraping Processor | http://localhost:3003 |
+| Sidekiq Dashboard | http://localhost:3003/sidekiq |
 
 ---
 
 ## 📡 Endpoints da API
 
-### Auth Service (`:3001`)
+### Auth Service (porta 3001)
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/v1/sign_up` | Registrar novo usuário |
-| `POST` | `/api/v1/sign_in` | Login (retorna JWT) |
-| `DELETE` | `/api/v1/logout` | Logout |
-| `GET` | `/api/v1/users` | Listar usuários |
-| `GET` | `/api/v1/users/:id` | Buscar usuário por ID |
+#### Registro de Usuário
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
 
-### Scraping Processor (`:3003`)
+{
+  "user": {
+    "email": "usuario@email.com",
+    "password": "senha123",
+    "password_confirmation": "senha123"
+  }
+}
+```
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/v1/scrap_task` | Criar tarefa de scraping |
-| `GET` | `/api/v1/health` | Health check |
+#### Login
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
 
-### Notification Service (`:3002`)
+{
+  "user": {
+    "email": "usuario@email.com",
+    "password": "senha123"
+  }
+}
+```
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/v1/notifications` | Enviar notificação |
-| `WS` | `/api/cable` | WebSocket (Action Cable) |
+**Resposta:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 1,
+    "email": "usuario@email.com"
+  }
+}
+```
+
+### Notification Service (porta 3002)
+
+#### Criar Notificação
+```http
+POST /api/v1/notifications
+Content-Type: application/json
+
+{
+  "notification": {
+    "event_type": "task_completed",
+    "task_id": 1,
+    "user": { "id": 1, "email": "user@email.com" },
+    "data": { "brand": "BMW", "model": "X2", "price": "R$ 350.000" }
+  }
+}
+```
+
+### Scraping Processor (porta 3003)
+
+#### Iniciar Scraping
+```http
+POST /api/v1/scraping_tasks
+Content-Type: application/json
+
+{
+  "task_id": 1,
+  "url": "https://www.webmotors.com.br/comprar/bmw/x2/..."
+}
+```
 
 ---
 
-## 📣 Tipos de Eventos de Notificação
+## 🔔 Eventos de Notificação
 
-| Evento | Descrição | Quando é disparado |
-|--------|-----------|-------------------|
-| `task_created` | Tarefa criada | Ao criar nova tarefa no Manager |
-| `task_completed` | Scraping concluído | Ao finalizar coleta com sucesso |
-| `task_failed` | Falha no scraping | Ao falhar na coleta |
+O sistema emite 3 tipos de eventos via WebSocket:
+
+| Evento | Quando |
+|--------|--------|
+| `task_created` | Tarefa criada pelo usuário |
+| `task_completed` | Scraping finalizado com sucesso |
+| `task_failed` | Scraping falhou |
 
 ---
 
-## 🔐 Variáveis de Ambiente
+## 🗄️ Estrutura do Banco de Dados
 
-```env
-# Compartilhadas
-JWT_SECRET_KEY=your-secret-key
-DATABASE_URL=postgresql://user:pass@host:5432/db
-REDIS_URL=redis://redis:6379/0
+### webscraping-manager (tasks)
+```
+┌─────────────────────────────────────┐
+│ tasks                               │
+├─────────────────────────────────────┤
+│ id            │ bigint (PK)         │
+│ title         │ string              │
+│ url           │ string              │
+│ status        │ integer (enum)      │
+│ result        │ jsonb               │
+│ error_message │ text                │
+│ user_id       │ bigint              │
+│ created_at    │ timestamp           │
+│ updated_at    │ timestamp           │
+└─────────────────────────────────────┘
+```
+
+### auth-service (users)
+```
+┌─────────────────────────────────────┐
+│ users                               │
+├─────────────────────────────────────┤
+│ id              │ bigint (PK)       │
+│ email           │ string (unique)   │
+│ password_digest │ string            │
+│ created_at      │ timestamp         │
+│ updated_at      │ timestamp         │
+└─────────────────────────────────────┘
+```
+
+### notification-service (notifications)
+```
+┌─────────────────────────────────────┐
+│ notifications                       │
+├─────────────────────────────────────┤
+│ id         │ bigint (PK)            │
+│ event_type │ string                 │
+│ task_id    │ bigint                 │
+│ user_data  │ jsonb                  │
+│ data       │ jsonb                  │
+│ created_at │ timestamp              │
+│ updated_at │ timestamp              │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 🧪 Executando Testes
+
+```bash
+# Auth Service
+docker-compose exec auth-service bundle exec rspec
 
 # Webscraping Manager
-AUTH_SERVICE_URL=http://auth-service:3000
-SCRAPING_PROCESSOR_URL=http://scraping-processor:3000
-NOTIFICATION_SERVICE_URL=http://notification-service:3000
+docker-compose exec webscraping-manager bundle exec rspec
+
+# Notification Service
+docker-compose exec notification-service bundle exec rspec
 
 # Scraping Processor
-WEBSCRAPING_MANAGER_URL=http://webscraping-manager:3000
+docker-compose exec scraping-processor bundle exec rspec
 ```
+
+---
+
+## 📁 Estrutura de Pastas
+
+```
+desafio-c2s/
+├── auth-service/              # Microsserviço de autenticação
+│   ├── app/
+│   │   ├── controllers/api/v1/
+│   │   ├── models/
+│   │   └── services/
+│   └── Dockerfile
+│
+├── notification-service/      # Microsserviço de notificações
+│   ├── app/
+│   │   ├── channels/
+│   │   ├── controllers/api/v1/
+│   │   └── models/
+│   └── Dockerfile
+│
+├── scraping-processor/        # Microsserviço de scraping
+│   ├── app/
+│   │   ├── controllers/api/v1/
+│   │   ├── jobs/
+│   │   └── services/
+│   └── Dockerfile
+│
+├── webscraping-manager/       # Aplicação principal (frontend)
+│   ├── app/
+│   │   ├── clients/
+│   │   ├── controllers/
+│   │   ├── javascript/
+│   │   │   ├── components/
+│   │   │   ├── Layouts/
+│   │   │   └── pages/
+│   │   ├── models/
+│   │   └── repository/
+│   └── Dockerfile
+│
+├── docs/                      # Documentação e diagramas
+│   ├── architecture.png
+│   ├── flow-sequence.png
+│   └── infrastructure.png
+│
+├── docker-compose.yml         # Orquestração dos containers
+└── README.md                  # Este arquivo
+```
+
+---
+
+## ⚙️ Variáveis de Ambiente
+
+| Variável | Serviço | Descrição |
+|----------|---------|-----------|
+| `DATABASE_URL` | Todos | URL de conexão PostgreSQL |
+| `REDIS_URL` | scraping-processor | URL de conexão Redis |
+| `JWT_SECRET_KEY` | auth-service, webscraping-manager | Chave secreta para JWT |
+| `AUTH_SERVICE_URL` | webscraping-manager | URL do serviço de auth |
+| `NOTIFICATION_SERVICE_URL` | webscraping-manager, scraping-processor | URL do serviço de notificações |
+| `SCRAPING_PROCESSOR_URL` | webscraping-manager | URL do processador de scraping |
+
+---
+
+## 👤 Autor
+
+**Seu Nome**
+- GitHub: [@seu-usuario](https://github.com/seu-usuario)
+- Email: seu-email@email.com
 
 ---
 
 ## 📝 Licença
 
-Este projeto foi desenvolvido como parte de um desafio técnico.
+Este projeto foi desenvolvido como parte de um processo seletivo.
