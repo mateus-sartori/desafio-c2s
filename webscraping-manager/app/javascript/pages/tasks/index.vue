@@ -573,8 +573,7 @@ export default {
     },
 
     openDetails(task) {
-      this.selected = task;
-      this.detailsOpen = true;
+      router.visit(`/tasks/${task.id}`);
     },
 
     confirmDelete(task) {

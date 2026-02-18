@@ -13,6 +13,11 @@ class TasksController < ApplicationController
   end
 
   def show
+    Task.preload_users([ @task ])
+
+    render inertia: "tasks/show", props: {
+      task: @task.as_json.merge(user: @task.user)
+    }
   end
 
   def new
@@ -27,7 +32,10 @@ class TasksController < ApplicationController
 
     begin
       @task.save!
+
+      NotificationService.send_notification(:task_created, @task)
       ScrapingProcessorClient.call.scrap_task(@task)
+
       redirect_to tasks_path
     rescue StandardError => e
       @task.update(status: :failed, error_message: e.message)
@@ -53,11 +61,12 @@ class TasksController < ApplicationController
   end
 
   private
-    def set_task
-      @task = Task.where(user_id: current_user.id).find(params[:id])
-    end
 
-    def task_params
-      params.require(:task).permit(:title, :url, :status, :result, :error_message)
-    end
+  def set_task
+    @task = Task.where(user_id: current_user.id).find(params[:id])
+  end
+
+  def task_params
+    params.require(:task).permit(:title, :url, :status, :result, :error_message)
+  end
 end

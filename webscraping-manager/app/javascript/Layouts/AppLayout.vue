@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar density="compact" color="primary" dark flat class="px-3">
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
+      <v-toolbar-title class="text-subtitle-1 font-weight-bold cursor-pointer" @click="$inertia.get('/home')">
         {{ title || "Webscraping Veículos" }}
       </v-toolbar-title>
 
