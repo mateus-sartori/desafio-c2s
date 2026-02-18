@@ -7,7 +7,7 @@ class UserRepository
     response.body
   end
 
-  def self.find_many(ids)
+  def self.find_by_ids(ids)
     response = AuthServiceClient.call.find_users(ids)
     users = response.body
 

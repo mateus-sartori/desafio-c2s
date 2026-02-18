@@ -58,6 +58,8 @@ class ScrapingJob
   def publish_status(scrape_task, status, result: nil, error_message: nil)
     return unless scrape_task.task_id.present?
 
+    event = status == :finished ? "task_completed" : "task_failed"
+
     redis.publish(
       "task_update_status",
       {
@@ -69,10 +71,16 @@ class ScrapingJob
     )
 
     NotificationClient.call.notify(
-      event: "task_finished",
+      event: event,
       payload: {
         task_id: scrape_task.task_id,
-        status: scrape_task.status
+        url: scrape_task.url,
+        status: scrape_task.status,
+        result: result,
+        error_message: error_message,
+        started_at: scrape_task.started_at,
+        finished_at: scrape_task.finished_at,
+        retry_count: scrape_task.retry_count
       }
     )
 

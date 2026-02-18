@@ -28,7 +28,7 @@
         </button>
 
         <div class="footer-links">
-          <a href="/register" class="register-link">Criar nova conta</a>
+          <a href="/sign_up" class="register-link">Criar nova conta</a>
           <a href="/forgot-password" class="forgot-link">Esqueceu sua senha?</a>
         </div>
 
