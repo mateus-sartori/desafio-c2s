@@ -1,7 +1,6 @@
-class User < ApplicationRecord
-  has_secure_password
-  has_many :scraping_tasks, dependent: :destroy
+# Represents only User object
+class User
+  include ActiveModel::Model
 
-  validates :email, presence: true, uniqueness: true
-  validates :password, length: { minimum: 6 }, if: -> { new_record? || !password.nil? }
+  attr_accessor :id, :name, :email
 end

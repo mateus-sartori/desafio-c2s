@@ -1,7 +1,8 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash -e
 
-# opcional: migrate
-bundle exec rails db:migrate || true
+# If running the rails server then create or migrate existing database
+if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  ./bin/rails db:prepare
+fi
 
-exec "$@"
+exec "${@}"

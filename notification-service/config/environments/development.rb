@@ -1,6 +1,11 @@
 require "active_support/core_ext/integer/time"
 
 Rails.application.configure do
+  if ENV["RAILS_HOSTS"].present?
+    ENV["RAILS_HOSTS"].split(",").each do |host|
+      config.hosts << host
+    end
+  end
   # Settings specified here will take precedence over those in config/application.rb.
 
   # Make code changes take effect immediately without server restart.

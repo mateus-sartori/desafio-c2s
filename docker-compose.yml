@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
 
   redis:
     image: redis:7-alpine
@@ -27,13 +27,17 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3001:3000"
+    volumes:
+      - ./auth-service:/app
+    working_dir: /app
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auth_db
       JWT_SECRET_KEY: docker-dev-secret
+      RAILS_HOSTS: "auth-service"
+    command: bash -c "rm -rf tmp/pids/server.pid && bundle install && bundle exec rails s -b 0.0.0.0 -p 3000"
     depends_on:
       - postgres
-
 
   notification-service:
     build:
@@ -41,11 +45,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3002:3000"
+    volumes:
+      - ./notification-service:/app
+    working_dir: /app
     environment:
+      RAILS_ENV: development
+      RAILS_HOSTS: "notification-service,notification-service:3000"
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/notification_db
+    command: bash -c "rm -rf tmp/pids/server.pid && bundle install && bundle exec rails s -b 0.0.0.0 -p 3000"
     depends_on:
       - postgres
-
 
   scraping-processor:
     build:
@@ -53,14 +62,22 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3003:3000"
+    volumes:
+      - ./scraping-processor:/app
+      - playwright_profile:/tmp/playwright_profile
+    working_dir: /app
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scraping_db
       REDIS_URL: redis://redis:6379/0
+      WEBSCRAPING_MANAGER_URL: http://webscraping-manager:3000
+      NOTIFICATION_SERVICE_URL: http://notification-service:3000
+      JWT_SECRET_KEY: docker-dev-secret
+      RAILS_HOSTS: "scraping-processor"
+    command: bash -c "rm -rf tmp/pids/server.pid && bundle install && bundle exec sidekiq & bundle exec rails s -b 0.0.0.0 -p 3000"
     depends_on:
       - postgres
       - redis
-
   webscraping-manager:
     build:
       context: ./webscraping-manager
@@ -76,9 +93,12 @@ services:
       RAILS_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webscraping_db
       AUTH_SERVICE_URL: http://auth-service:3000
+      SCRAPING_PROCESSOR_URL: http://scraping-processor:3000
       NOTIFICATION_SERVICE_URL: http://notification-service:3000
       REDIS_URL: redis://redis:6379/0
-    command: bash -c "bundle install && bin/rails db:prepare && bin/dev"
+      JWT_SECRET_KEY: docker-dev-secret
+      RAILS_HOSTS: "webscraping-manager"
+    command: bash -c "rm -rf tmp/pids/server.pid && bundle install && bin/vite dev"
     depends_on:
       - postgres
       - redis
@@ -89,3 +109,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  playwright_profile:
+
+networks:
+  default:

@@ -1,47 +1,21 @@
-class AuthServiceClient
-  class Error < StandardError; end
-  class Unauthorized < Error; end
-  class UnprocessableEntity < Error; end
-
-  def initialize(base_url: ENV["AUTH_SERVICE_URL"])
-    @base_url = base_url
-    @conn = Faraday.new(url: @base_url) do |faraday|
-      faraday.request :json
-      faraday.response :json, content_type: /\bjson$/
-      faraday.adapter Faraday.default_adapter
-      faraday.options.timeout = 8
-      faraday.options.open_timeout = 3
-    end
+class AuthServiceClient < BaseClient
+  def call
+    super(base_url: ENV.fetch("AUTH_SERVICE_URL"))
   end
 
-  def register(email, password, password_confirmation)
-    response = @conn.post("/register", { email: email, password: password, password_confirmation: password_confirmation })
-    handle(response)
+  def sign_up(name, email, password, password_confirmation)
+   @conn.post("api/v1/sign_up", { auth: { name: name, email: email, password: password, password_confirmation: password_confirmation } })
   end
 
-  def login(email, password)
-    response = @conn.post("/login", { email: email, password: password })
-    handle(response)
+  def sign_in(email, password)
+    @conn.post("api/v1/sign_in", { auth: { email: email, password: password } })
   end
 
-
-  private
-
-  def post_json(path, payload)
-    response = @conn.post(path, payload)
-    handle(response)
+  def find_user(user_id)
+    @conn.get("api/v1/users/#{user_id}")
   end
 
-  def handle(response)
-    case response.status
-    when 200, 201, 202
-      response.body
-    when 401
-      raise Unauthorized, "Unauthorized: #{response.body['error']}"
-    when 422
-      raise UnprocessableEntity, "Unprocessable Entity: #{response.body['error']}"
-    else
-      raise Error, "HTTP Error #{response.status}: #{response.body}"
-    end
+  def find_users(ids)
+    @conn.get("api/v1/users", { ids: ids })
   end
 end

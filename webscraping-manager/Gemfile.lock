@@ -151,6 +151,8 @@ GEM
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
     json (2.18.1)
+    jwt (3.1.2)
+      base64
     kamal (2.10.1)
       activesupport (>= 7.0)
       base64 (~> 0.2)
@@ -284,6 +286,10 @@ GEM
       erb
       psych (>= 4.0.0)
       tsort
+    redis (5.4.1)
+      redis-client (>= 0.22.0)
+    redis-client (0.26.4)
+      connection_pool
     regexp_parser (2.11.3)
     reline (0.6.3)
       io-console (~> 0.5)
@@ -414,11 +420,13 @@ DEPENDENCIES
   importmap-rails
   inertia_rails
   jbuilder
+  jwt
   kamal
   pg (~> 1.1)
   propshaft
   puma (>= 5.0)
   rails (~> 8.1.2)
+  redis
   rubocop (~> 1.84)
   rubocop-rails-omakase
   selenium-webdriver

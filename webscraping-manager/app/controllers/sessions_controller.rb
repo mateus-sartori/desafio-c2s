@@ -1,26 +1,28 @@
 class SessionsController < ApplicationController
-  def new
+  def index
     render inertia: "Auth/Login"
   end
 
-  def create
-    payload = AuthServiceClient.new.login(
-      email: params.require(:email),
-      password: params.require(:password)
-    )
+  def sign_in
+    response = AuthServiceClient.call.sign_in(params[:email], params[:password])
 
-    sign_in!(token: payload["token"], user: payload["user"])
-    redirect_to dashboard_path, notice: "Successfully signed in!"
-  rescue AuthServiceClient::AuthenticationError => e
-    flash.now[:alert] = e.message
-    render inertia: "Auth/Login", status: :unprocessable_entity
-  rescue AuthServiceClient::Error => e
-    flash.now[:alert] = "An error occurred while trying to sign in. Please try again later."
-    render inertia: "Auth/Login", status: :internal_server_error
+    if response.success?
+      cookies.encrypted[:token] = {
+        value: response.body.fetch("token"),
+        httponly: true,
+        secure: Rails.env.production?,
+        same_site: :lax,
+        expires: 2.weeks.from_now
+      }
+
+      redirect_to home_path
+    else
+      render inertia: "Auth/Login", props: { flash: { error: response.body["error"] } }
+    end
   end
 
   def destroy
-    sign_out!
-    redirect_to login_path, notice: "Successfully signed out!"
+    cookies.delete(:token)
+    redirect_to login_path
   end
 end

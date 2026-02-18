@@ -10,6 +10,7 @@ module WebscrapingManager
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
+    config.hosts.concat(ENV["RAILS_HOSTS"].to_s.split(","))
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.

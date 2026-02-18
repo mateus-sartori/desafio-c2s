@@ -3,9 +3,6 @@ Rails.application.routes.draw do
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root "inertia_example#index"
-  get "inertia-example", to: "inertia_example#index"
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
@@ -18,12 +15,15 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
 
-  get "login", to: "sessions#new"
-  post "login", to: "sessions#create"
+  # Auth routes
+  post "sign_in", to: "sessions#sign_in"
+  post "sign_up", to: "registrations#sign_up"
+
+  #  Inertia Views
+  get "login", to: "sessions#index"
   delete "logout", to: "sessions#destroy"
+  get "sign_up", to: "registrations#index"
+  get "home", to: "home#index"
 
-  get "register", to: "registrations#new"
-  post "register", to: "registrations#create"
-
-  get "dashboard", to: "dashboard#index"
+  resources :tasks
 end
